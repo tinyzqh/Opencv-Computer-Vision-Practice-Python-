@@ -1,6 +1,8 @@
 # Opencv-Computer-Vision-Practice-Python-
 Opencv 计算机视觉实战
 
+代码说明、算法原理文档后续将添加
+
 - [第二章 图像基本操作]()
 - [第三章 阈值与平滑处理]()
 - [第四章 图像形态学操作]()
