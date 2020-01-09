@@ -3,7 +3,8 @@ Opencv 计算机视觉实战
 
 代码说明、算法原理文档后续将添加
 
-- [第二章 图像基本操作](http://note.youdao.com/noteshare?id=0887009c83a5218c78d3750b77ee80d9&sub=AF497861AC6E4D629B95B7D28F00571C)
+- [计算机视觉实战 (一) 开个视觉实战专栏](https://mp.weixin.qq.com/s/hblwtPT-oC4Lsew4WUZyug)
+- [计算机视觉实战(二）图像基本操作](https://mp.weixin.qq.com/s/mBwfLge4LaQmu37H9rNklQ)
 - [第三章 阈值与平滑处理](http://note.youdao.com/noteshare?id=555e8b00d65a9e95c7ae0378f19d73d2&sub=82F3BD2ED41F4751B031795580B51E32)
 - [第四章 图像形态学操作](http://note.youdao.com/noteshare?id=c3f29e5d3e1fc019fe52d20817a7e0ce&sub=BAF7DE1A193641B8B17F8E5096EE27AA)
 - [第五章 图像梯度计算](http://note.youdao.com/noteshare?id=57fd98d71b385b50de7df787b6a09bbe&sub=F6615BA722DF4C2DAF2E247FE938AC57)
