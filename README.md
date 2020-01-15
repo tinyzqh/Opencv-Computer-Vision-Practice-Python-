@@ -20,7 +20,7 @@ Opencv 计算机视觉实战
 - [计算机视觉实战(十五）背景建模 (附完整代码)](https://mp.weixin.qq.com/s/4uYal6mLbGOZebhDT2hINA)
 - [计算机视觉实战(十六）光流估计 (附完整代码)](https://mp.weixin.qq.com/s/kOL4X6cGyix2NGCMQgrblA)
 - [计算机视觉实战(十七）OpenCV的DNN模型 (附完整代码)](https://mp.weixin.qq.com/s/RvWT_mce0I04eAOXweAUfg)
-- 多目标追踪
-- 疲劳检测
+- [多目标追踪]()
+- [疲劳检测]()
 
-本专栏目的在于传递和分享更多信息，并不代表本平台赞同其观点和对其真实性负责，如有引用，版权归原作者所有，如有侵权请联系我们删除。
+&emsp;&emsp;本专栏目的在于传递和分享更多信息，并不代表本平台赞同其观点和对其真实性负责，如有引用，版权归原作者所有，如有侵权请联系我们删除。
