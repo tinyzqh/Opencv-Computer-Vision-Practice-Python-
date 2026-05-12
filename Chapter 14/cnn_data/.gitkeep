@@ -1,0 +1,4 @@
+# This directory is populated at runtime by Chapter 14/park_test.py
+# (specifically `Parking.save_images_for_cnn`). The directory itself must
+# exist for cv2.imwrite to succeed, but the .jpg crops it writes are
+# regenerated on every run and are intentionally gitignored.

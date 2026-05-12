@@ -25,11 +25,11 @@ class Parking:
         cv2.imshow(name, img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-    def select_rgb_white_yellow(self,image): 
-        #过滤掉背景
+    def select_rgb_white_yellow(self,image):
+        # Filter out the background
         lower = np.uint8([120, 120, 120])
         upper = np.uint8([255, 255, 255])
-        # lower_red和高于upper_red的部分分别变成0，lower_red～upper_red之间的值变成255,相当于过滤背景
+        # Pixels below `lower` and above `upper` become 0; values in between become 255 — this drops the background
         white_mask = cv2.inRange(image, lower, upper)
         self.cv_show('white_mask',white_mask)
         
@@ -43,7 +43,7 @@ class Parking:
     
     def filter_region(self,image, vertices):
         """
-                剔除掉不需要的地方
+        Mask out areas we don't care about.
         """
         mask = np.zeros_like(image)
         if len(mask.shape)==2:
@@ -53,7 +53,7 @@ class Parking:
     
     def select_region(self,image):
         """
-                手动选择区域
+        Manually pick the region of interest.
         """
         # first, define the polygon by vertices
         rows, cols = image.shape[:2]
@@ -75,13 +75,14 @@ class Parking:
         return self.filter_region(image, vertices)
     
     def hough_lines(self,image):
-        #输入的图像需要是边缘检测后的结果
-        #minLineLengh(线的最短长度，比这个短的都被忽略)和MaxLineCap（两条直线之间的最大间隔，小于此值，认为是一条直线）
-        #rho距离精度,theta角度精度,threshod超过设定阈值才被检测出线段
+        # The input image must already be edge-detected.
+        # minLineLength: shorter segments than this are dropped.
+        # maxLineGap: lines closer than this gap are merged into one.
+        # rho is the distance resolution, theta the angle resolution, threshold the vote count needed for a line.
         return cv2.HoughLinesP(image, rho=0.1, theta=np.pi/10, threshold=15, minLineLength=9, maxLineGap=4)
-        
+
     def draw_lines(self,image, lines, color=[255, 0, 0], thickness=2, make_copy=True):
-        # 过滤霍夫变换检测到直线
+        # Filter the lines returned by HoughLinesP
         if make_copy:
             image = np.copy(image) 
         cleaned = []
@@ -95,18 +96,18 @@ class Parking:
     def identify_blocks(self,image, lines, make_copy=True):
         if make_copy:
             new_image = np.copy(image)
-        #Step 1: 过滤部分直线
+        # Step 1: filter out unwanted lines
         cleaned = []
         for line in lines:
             for x1,y1,x2,y2 in line:
                 if abs(y2-y1) <=1 and abs(x2-x1) >=25 and abs(x2-x1) <= 55:
                     cleaned.append((x1,y1,x2,y2))
         
-        #Step 2: 对直线按照x1进行排序
+        # Step 2: sort lines by x1
         import operator
         list1 = sorted(cleaned, key=operator.itemgetter(0, 1))
         
-        #Step 3: 找到多个列，相当于每列是一排车
+        # Step 3: cluster lines into columns — one column per row of parked cars
         clusters = {}
         dIndex = 0
         clus_dist = 10
@@ -121,7 +122,7 @@ class Parking:
             else:
                 dIndex += 1
         
-        #Step 4: 得到坐标
+        # Step 4: compute the column rectangles
         rects = {}
         i = 0
         for key in clusters:
@@ -142,7 +143,7 @@ class Parking:
                 i += 1
         
         print("Num Parking Lanes: ", len(rects))
-        #Step 5: 把列矩形画出来
+        # Step 5: draw the column rectangles
         buff = 7
         for key in rects:
             tup_topLeft = (int(rects[key][0] - buff), int(rects[key][1]))
@@ -154,9 +155,9 @@ class Parking:
         if make_copy:
             new_image = np.copy(image)
         gap = 15.5
-        spot_dict = {} # 字典：一个车位对应一个位置
+        spot_dict = {}  # dict mapping each parking spot to its position
         tot_spots = 0
-        #微调
+        # Per-column fine-tuning offsets
         adj_y1 = {0: 20, 1:-10, 2:0, 3:-11, 4:28, 5:5, 6:-15, 7:-15, 8:-10, 9:-30, 10:9, 11:-32}
         adj_y2 = {0: 30, 1: 50, 2:15, 3:10, 4:-15, 5:15, 6:15, 7:-20, 8:15, 9:15, 10:0, 11:30}
         
@@ -173,17 +174,17 @@ class Parking:
             for i in range(0, num_splits+1):
                 y = int(y1 + i*gap)
                 cv2.line(new_image, (x1, y), (x2, y), color, thickness)
-            if key > 0 and key < len(rects) -1 :        
-                #竖直线
+            if key > 0 and key < len(rects) -1 :
+                # Vertical separator
                 x = int((x1 + x2)/2)
                 cv2.line(new_image, (x, y1), (x, y2), color, thickness)
-            # 计算数量
+            # Tally the spot count
             if key == 0 or key == (len(rects) -1):
                 tot_spots += num_splits +1
             else:
                 tot_spots += 2*(num_splits +1)
-                
-            # 字典对应好
+
+            # Build the spot dictionary
             if key == 0 or key == (len(rects) -1):
                 for i in range(0, num_splits+1):
                     cur_len = len(spot_dict)
@@ -215,7 +216,7 @@ class Parking:
         for spot in spot_dict.keys():
             (x1, y1, x2, y2) = spot
             (x1, y1, x2, y2) = (int(x1), int(y1), int(x2), int(y2))
-            #裁剪
+            # Crop the spot
             spot_img = image[y1:y2, x1:x2]
             spot_img = cv2.resize(spot_img, (0,0), fx=2.0, fy=2.0) 
             spot_id = spot_dict[spot]
@@ -224,18 +225,21 @@ class Parking:
             print(spot_img.shape, filename, (x1,x2,y1,y2))
             
             cv2.imwrite(os.path.join(folder_name, filename), spot_img)
-    def make_prediction(self,image,model,class_dictionary):
-        #预处理
-        img = image/255.
-    
-        #转换成4D tensor
-        image = np.expand_dims(img, axis=0)
-    
-        # 用训练好的模型进行训练
-        class_predicted = model.predict(image)
-        inID = np.argmax(class_predicted[0])
-        label = class_dictionary[inID]
-        return label
+    def make_prediction(self, image, model, class_dictionary):
+        # Inference with a PyTorch model. The caller is responsible for putting
+        # `model` into eval mode and onto the right device before the first call.
+        import torch
+        device = next(model.parameters()).device
+        arr = image.astype(np.float32)
+        # Normalize to [0, 1] regardless of whether the caller handed us uint8 [0, 255] or float [0, 1]
+        if arr.max() > 1.5:
+            arr /= 255.0
+        # HWC -> CHW -> NCHW
+        tensor = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0).to(device)
+        with torch.no_grad():
+            logits = model(tensor)
+        inID = int(logits.argmax(dim=1).item())
+        return class_dictionary[inID]
     def predict_on_image(self,image, spot_dict , model,class_dictionary,make_copy=True, color = [0, 255, 0], alpha=0.5):
         if make_copy:
             new_image = np.copy(image)

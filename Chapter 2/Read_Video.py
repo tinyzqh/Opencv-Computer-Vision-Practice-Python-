@@ -1,6 +1,6 @@
 import cv2
 vc = cv2.VideoCapture('chaplin.mp4')
-# 判断是否能够读取视频
+# Check whether the video can be read
 if vc.isOpened():
     open, frame = vc.read()
 else:

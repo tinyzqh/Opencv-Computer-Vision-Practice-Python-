@@ -1,0 +1,19 @@
+# OpenCV Computer Vision Practice — Python dependencies
+# Tested with Python 3.12 on Linux. All 32 example scripts run end-to-end with
+# these versions. Pin minimums rather than exacts so newer patch releases work.
+
+# Core
+opencv-contrib-python>=4.5,<5.0      # need contrib for SIFT (xfeatures2d) and legacy trackers
+numpy>=1.23
+matplotlib>=3.5
+
+# Chapter 9 / 15 (credit-card OCR, OMR sheet grading)
+imutils>=0.5
+
+# Chapter 14 (parking-spot detection) — VGG16 transfer-learning classifier
+torch>=2.0
+torchvision>=0.15
+
+# Chapter 19 / 21 (multi-object tracking, drowsiness / blink detection)
+dlib>=19.22
+scipy>=1.10

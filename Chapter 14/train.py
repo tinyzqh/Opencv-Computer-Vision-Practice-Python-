@@ -1,108 +1,113 @@
-import numpy
+"""Train a binary classifier (empty vs occupied) on parking-spot crops.
+
+Transfer-learning from a pretrained VGG16 backbone (the first few conv blocks
+are frozen). Saves the trained weights to ``car1.pth`` for inference by
+``park_test.py``.
+"""
 import os
-from keras import applications
-from keras.preprocessing.image import ImageDataGenerator
-from keras import optimizers
-from keras.models import Sequential, Model
-from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D
-from keras import backend as k
-from keras.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard, EarlyStopping
-from keras.models import Sequential
-from keras.layers.normalization import BatchNormalization
-from keras.layers.convolutional import Conv2D
-from keras.layers.convolutional import MaxPooling2D
-from keras.initializers import TruncatedNormal
-from keras.layers.core import Activation
-from keras.layers.core import Flatten
-from keras.layers.core import Dropout
-from keras.layers.core import Dense
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from torchvision import datasets, models, transforms
+
+IMG_SIZE = 48
+BATCH_SIZE = 32
+EPOCHS = 15
+NUM_CLASSES = 2
+LR = 1e-4
+MOMENTUM = 0.9
+WEIGHTS_PATH = "car1.pth"
+TRAIN_DIR = "train_data/train"
+TEST_DIR = "train_data/test"
 
 
-files_train = 0
-files_validation = 0
-
-cwd = os.getcwd()
-folder = 'train_data/train'
-for sub_folder in os.listdir(folder):
-    path, dirs, files = next(os.walk(os.path.join(folder,sub_folder)))
-    files_train += len(files)
-
-
-folder = 'train_data/test'
-for sub_folder in os.listdir(folder):
-    path, dirs, files = next(os.walk(os.path.join(folder,sub_folder)))
-    files_validation += len(files)
-
-print(files_train,files_validation)
-
-img_width, img_height = 48, 48
-train_data_dir = "train_data/train"
-validation_data_dir = "train_data/test"
-nb_train_samples = files_train
-nb_validation_samples = files_validation
-batch_size = 32
-epochs = 15
-num_classes = 2
-
-model = applications.VGG16(weights='imagenet', include_top=False, input_shape = (img_width, img_height, 3))
+def build_model(num_classes: int) -> nn.Module:
+    """VGG16 backbone with a fresh classifier head."""
+    model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
+    # Freeze the first ten conv layers (matches the original Keras setup)
+    conv_layers = [m for m in model.features if isinstance(m, nn.Conv2d)]
+    for layer in conv_layers[:10]:
+        for p in layer.parameters():
+            p.requires_grad = False
+    # Replace classifier head with a single Linear (matches the Keras "Flatten + Dense")
+    # VGG16 features output is (B, 512, IMG_SIZE/32, IMG_SIZE/32); at 48x48 input this is (B, 512, 1, 1)
+    model.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+    model.classifier = nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(512, num_classes),
+    )
+    return model
 
 
-for layer in model.layers[:10]:
-    layer.trainable = False
+def build_loaders():
+    train_tf = transforms.Compose([
+        transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomAffine(degrees=5, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+        transforms.ToTensor(),
+    ])
+    test_tf = transforms.Compose([
+        transforms.Resize((IMG_SIZE, IMG_SIZE)),
+        transforms.ToTensor(),
+    ])
+    train_ds = datasets.ImageFolder(TRAIN_DIR, transform=train_tf)
+    test_ds = datasets.ImageFolder(TEST_DIR, transform=test_tf)
+    print(f"train={len(train_ds)}  test={len(test_ds)}  classes={train_ds.classes}")
+    return (
+        DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
+        DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0),
+        train_ds.classes,
+    )
 
 
-x = model.output
-x = Flatten()(x)
-predictions = Dense(num_classes, activation="softmax")(x)
+@torch.no_grad()
+def evaluate(model, loader, device):
+    model.eval()
+    correct = total = 0
+    for x, y in loader:
+        x, y = x.to(device), y.to(device)
+        pred = model(x).argmax(dim=1)
+        correct += (pred == y).sum().item()
+        total += y.size(0)
+    return correct / total if total else 0.0
 
 
-model_final = Model(input = model.input, output = predictions)
+def main():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"device: {device}")
+
+    train_loader, test_loader, classes = build_loaders()
+    model = build_model(NUM_CLASSES).to(device)
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(
+        [p for p in model.parameters() if p.requires_grad],
+        lr=LR, momentum=MOMENTUM,
+    )
+
+    best_acc = 0.0
+    for epoch in range(1, EPOCHS + 1):
+        model.train()
+        running = 0.0
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
+            optimizer.zero_grad()
+            loss = criterion(model(x), y)
+            loss.backward()
+            optimizer.step()
+            running += loss.item() * x.size(0)
+        train_loss = running / len(train_loader.dataset)
+        val_acc = evaluate(model, test_loader, device)
+        print(f"epoch {epoch:02d}  loss={train_loss:.4f}  val_acc={val_acc:.4f}")
+
+        if val_acc > best_acc:
+            best_acc = val_acc
+            torch.save({"state_dict": model.state_dict(), "classes": classes}, WEIGHTS_PATH)
+            print(f"  ↳ saved {WEIGHTS_PATH} (best={best_acc:.4f})")
+
+    print(f"done. best val_acc={best_acc:.4f}  -> {WEIGHTS_PATH}")
 
 
-model_final.compile(loss = "categorical_crossentropy", 
-                    optimizer = optimizers.SGD(lr=0.0001, momentum=0.9), 
-                    metrics=["accuracy"]) 
-
-
-train_datagen = ImageDataGenerator(
-rescale = 1./255,
-horizontal_flip = True,
-fill_mode = "nearest",
-zoom_range = 0.1,
-width_shift_range = 0.1,
-height_shift_range=0.1,
-rotation_range=5)
-
-test_datagen = ImageDataGenerator(
-rescale = 1./255,
-horizontal_flip = True,
-fill_mode = "nearest",
-zoom_range = 0.1,
-width_shift_range = 0.1,
-height_shift_range=0.1,
-rotation_range=5)
-
-train_generator = train_datagen.flow_from_directory(
-train_data_dir,
-target_size = (img_height, img_width),
-batch_size = batch_size,
-class_mode = "categorical")
-
-validation_generator = test_datagen.flow_from_directory(
-validation_data_dir,
-target_size = (img_height, img_width),
-class_mode = "categorical")
-
-checkpoint = ModelCheckpoint("car1.h5", monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=False, mode='auto', period=1)
-early = EarlyStopping(monitor='val_acc', min_delta=0, patience=10, verbose=1, mode='auto')
-
-
-
-
-history_object = model_final.fit_generator(
-train_generator,
-samples_per_epoch = nb_train_samples,
-epochs = epochs,
-validation_data = validation_generator,
-nb_val_samples = nb_validation_samples,
-callbacks = [checkpoint, early])
+if __name__ == "__main__":
+    main()

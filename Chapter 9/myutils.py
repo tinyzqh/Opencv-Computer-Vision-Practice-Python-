@@ -9,7 +9,7 @@ def sort_contours(cnts, method="left-to-right"):
 
     if method == "top-to-bottom" or method == "bottom-to-top":
         i = 1
-    boundingBoxes = [cv2.boundingRect(c) for c in cnts] #用一个最小的矩形，把找到的形状包起来x,y,h,w
+    boundingBoxes = [cv2.boundingRect(c) for c in cnts]  # Enclose each contour with its minimal bounding rectangle (x, y, w, h)
     (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
                                         key=lambda b: b[1][i], reverse=reverse))
 
